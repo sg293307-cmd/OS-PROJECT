@@ -7,10 +7,11 @@
 
 ## Overall status
 
-**Frontend phase: complete and pushed**  
-**C scheduling engine: not started**  
-**WebAssembly integration: pending**  
-**Overall project: early development / frontend foundation established**
+**Frontend phase: implemented**
+**C scheduling engine: implemented and tested**
+**WebAssembly ABI and React service integration: implemented**
+**CSV/history features: implemented**
+**Final QA/documentation: complete, pending local Emscripten artifact generation**
 
 ## Completed work
 
@@ -75,25 +76,16 @@
 - Latest commit is pushed to `origin/main`.
 - Working tree is clean.
 
-## Known limitations
+## Current limitations and next steps
 
-- The current scheduler implementation is a TypeScript development adapter, not the authoritative C engine.
-- Emscripten-generated WebAssembly files are not yet present.
-- CSV import and export controls are currently visual placeholders.
-- No automated frontend test suite has been added yet.
-- No C engine, C test harness, or WASM ABI implementation exists yet.
-- Analytics currently visualize the latest run only; comparison history is not implemented.
-- Process validation should be expanded with duplicate-ID and full-form error reporting.
-
-## Recommended next phases
-
-1. Implement the standalone C data model and scheduling engine.
-2. Add C tests for SJF, SRTF, tie-breaking, idle time, metrics, and invariants.
-3. Define and implement the final WASM ABI.
-4. Replace the development adapter with the Emscripten service implementation.
-5. Add Vitest coverage for process management, rendering, validation, and result display.
-6. Implement CSV import/export and local simulation history.
-7. Add accessibility review, responsive QA, documentation, and demo materials.
+- `emcc` is not installed in the current environment, so generated
+  `public/wasm/` assets still need to be produced locally.
+- Browser-level validation against the generated WASM artifact remains a demo
+  setup task.
+- Analytics currently visualize the selected/latest run rather than historical
+  comparison charts.
+- Future scope includes ready-queue decision explanations, FCFS, and Round
+  Robin.
 
 ## Current project maturity
 
@@ -103,10 +95,11 @@
 | Process management UI | Complete |
 | Gantt visualization | Complete |
 | Results and analytics UI | Complete |
-| Development scheduler adapter | Complete |
-| C scheduling engine | Not started |
-| C automated tests | Not started |
-| WebAssembly build | Not started |
-| WASM frontend integration | Pending |
-| Frontend automated tests | Not started |
-| Final documentation and demo | In progress |
+| Development scheduler adapter | Replaced by WASM service |
+| C scheduling engine | Complete |
+| C automated tests | Complete |
+| WebAssembly ABI | Complete |
+| WASM frontend integration | Complete |
+| Frontend automated tests | Complete |
+| CSV and simulation history | Complete |
+| Final documentation and demo | Complete, local WASM generation pending |

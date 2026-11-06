@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
-import { runScheduler } from "./services/wasmService";
+import { useMemo, useRef, useState } from "react";
+import { downloadCsv, ganttCsv, parseProcessCsv, processCsv, resultCsv } from "./services/csvService";
+import { clearHistory, deleteHistory, readHistory, saveHistory, type SimulationHistoryRecord } from "./services/historyService";
+import { runScheduler, validateProcessInput } from "./services/wasmService";
 import type { Algorithm, ProcessInput, SimulationResult } from "./types";
 
-type View = "overview" | "processes" | "simulator" | "analytics" | "guide" | "about";
+type View = "overview" | "processes" | "simulator" | "analytics" | "history" | "guide" | "about";
 
 const sampleProcesses: ProcessInput[] = [
   { pid: "P1", arrivalTime: 0, burstTime: 7 },
@@ -16,6 +18,7 @@ const navItems: { id: View; label: string; icon: string }[] = [
   { id: "processes", label: "Process manager", icon: "▦" },
   { id: "simulator", label: "Simulator", icon: "▷" },
   { id: "analytics", label: "Analytics", icon: "◒" },
+  { id: "history", label: "History", icon: "↺" },
   { id: "guide", label: "Algorithm guide", icon: "?" },
   { id: "about", label: "About project", icon: "i" },
 ];
@@ -27,13 +30,21 @@ function App() {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [history, setHistory] = useState<SimulationHistoryRecord[]>(() => readHistory());
 
   const execute = async () => {
-    setBusy(true);
     setError("");
+    try {
+      validateProcessInput(processes);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Fix the process input before running a simulation.");
+      return;
+    }
+    setBusy(true);
     try {
       const next = await runScheduler(algorithm, processes);
       setResult(next);
+      setHistory((current) => [saveHistory({ algorithm, input: processes, result: next }), ...current]);
       setView("simulator");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The simulation could not be completed.");
@@ -59,7 +70,7 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="wasm-status"><span className="status-dot" /><div><strong>Engine ready</strong><small>Development adapter</small></div></div>
+          <div className="wasm-status"><span className="status-dot" /><div><strong>Engine ready</strong><small>C / WebAssembly</small></div></div>
           <div className="version">v0.1.0 · Frontend phase</div>
         </div>
       </aside>
@@ -70,9 +81,10 @@ function App() {
         </header>
         <div className="page">
           {view === "overview" && <Overview result={result} onNavigate={setView} onRun={execute} />}
-          {view === "processes" && <ProcessManager processes={processes} updateProcess={updateProcess} setProcesses={setProcesses} onRun={execute} error={error} />}
+          {view === "processes" && <ProcessManager processes={processes} updateProcess={updateProcess} setProcesses={setProcesses} onRun={execute} error={error} setError={setError} result={result} />}
           {view === "simulator" && <Simulator algorithm={algorithm} setAlgorithm={setAlgorithm} result={result} busy={busy} onRun={execute} error={error} />}
           {view === "analytics" && <Analytics result={result} />}
+          {view === "history" && <History records={history} onOpen={(record) => { setAlgorithm(record.algorithm); setProcesses(record.input); setResult(record.result); setView("simulator"); }} onDelete={(id) => { deleteHistory(id); setHistory(readHistory()); }} onClear={() => { if (window.confirm("Clear all simulation history?")) { clearHistory(); setHistory([]); } }} />}
           {view === "guide" && <Guide />}
           {view === "about" && <About />}
         </div>
@@ -94,18 +106,26 @@ function Overview({ result, onNavigate, onRun }: { result: SimulationResult | nu
   </>;
 }
 
-function ProcessManager({ processes, updateProcess, setProcesses, onRun, error }: { processes: ProcessInput[]; updateProcess: (index: number, patch: Partial<ProcessInput>) => void; setProcesses: (processes: ProcessInput[]) => void; onRun: () => void; error: string }) {
+function ProcessManager({ processes, updateProcess, setProcesses, onRun, error, setError, result }: { processes: ProcessInput[]; updateProcess: (index: number, patch: Partial<ProcessInput>) => void; setProcesses: (processes: ProcessInput[]) => void; onRun: () => void; error: string; setError: (message: string) => void; result: SimulationResult | null }) {
   const add = () => setProcesses([...processes, { pid: `P${processes.length + 1}`, arrivalTime: 0, burstTime: 1 }]);
   const remove = (index: number) => setProcesses(processes.filter((_, i) => i !== index));
   const loadSample = () => setProcesses(sampleProcesses);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const importCsv = async (file: File) => { try { setProcesses(parseProcessCsv(await file.text())); setError(""); } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not import CSV."); } };
   return <><PageIntro eyebrow="INPUT CONFIGURATION" title="Process manager" description="Define the workload that the C scheduling engine will evaluate." action={<div className="button-row"><button className="secondary-button" onClick={loadSample}>↻ Load sample</button><button className="primary-button" onClick={onRun}>▷ Run simulation</button></div>} />
     {error && <div className="error-banner">! {error}</div>}
-    <div className="panel table-panel"><div className="panel-header"><div><h3>Process queue <span className="count-badge">{processes.length}</span></h3><span className="muted">All times are measured in milliseconds.</span></div><div className="table-actions"><button className="secondary-button small" onClick={add}>＋ Add process</button><button className="icon-button small" title="Import CSV">⇧</button><button className="icon-button small" title="Export CSV">⇩</button></div></div><div className="process-table"><div className="table-row table-head"><span>PROCESS ID</span><span>ARRIVAL TIME</span><span>BURST TIME</span><span>STATUS</span><span /></div>{processes.map((process, index) => <div className="table-row" key={`${process.pid}-${index}`}><div className="pid-cell"><span className="pid-dot" /> <input value={process.pid} onChange={(e) => updateProcess(index, { pid: e.target.value })} /></div><NumberInput value={process.arrivalTime} onChange={(value) => updateProcess(index, { arrivalTime: value })} /><NumberInput value={process.burstTime} min={1} onChange={(value) => updateProcess(index, { burstTime: value })} /><span><span className="status-tag ready">Ready</span></span><button className="delete-button" onClick={() => remove(index)} aria-label={`Delete ${process.pid}`}>×</button></div>)}</div><div className="table-footer"><span><span className="success-dot" /> Input validated locally</span><span>Tip: use unique IDs and positive burst times</span></div></div>
+    <div className="panel table-panel"><div className="panel-header"><div><h3>Process queue <span className="count-badge">{processes.length}</span></h3><span className="muted">All times are measured in milliseconds.</span></div><div className="table-actions"><button className="secondary-button small" onClick={add}>＋ Add process</button><input ref={fileInput} hidden aria-label="CSV file" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importCsv(file); event.target.value = ""; }} /><button className="icon-button small" title="Import CSV" aria-label="Import CSV" onClick={() => fileInput.current?.click()}>⇧</button><button className="icon-button small" title="Export CSV" aria-label="Export CSV" onClick={() => downloadCsv("processes.csv", processCsv(processes))}>⇩</button>{result && <button className="icon-button small" title="Export results CSV" aria-label="Export results CSV" onClick={() => downloadCsv("results.csv", resultCsv(result))}>R</button>}{result && <button className="icon-button small" title="Export Gantt CSV" aria-label="Export Gantt CSV" onClick={() => downloadCsv("gantt.csv", ganttCsv(result))}>G</button>}</div></div><div className="process-table"><div className="table-row table-head"><span>PROCESS ID</span><span>ARRIVAL TIME</span><span>BURST TIME</span><span>STATUS</span><span /></div>{processes.map((process, index) => <div className="table-row" key={`${process.pid}-${index}`}>    <div className="pid-cell"><span className="pid-dot" /> <input aria-label={`Process ID ${index + 1}`} value={process.pid} onChange={(e) => updateProcess(index, { pid: e.target.value })} /></div><NumberInput label={`Arrival time ${index + 1}`} value={process.arrivalTime} onChange={(value) => updateProcess(index, { arrivalTime: value })} /><NumberInput label={`Burst time ${index + 1}`} value={process.burstTime} min={1} onChange={(value) => updateProcess(index, { burstTime: value })} /><span><span className="status-tag ready">Ready</span></span><button className="delete-button" onClick={() => remove(index)} aria-label={`Delete ${process.pid}`}>×</button></div>)}</div><div className="table-footer"><span><span className="success-dot" /> Input validated locally</span><span>Tip: use unique IDs and positive burst times</span></div></div>
   </>;
 }
 
-function NumberInput({ value, min = 0, onChange }: { value: number; min?: number; onChange: (value: number) => void }) {
-  return <input className="number-input" type="number" min={min} value={value} onChange={(e) => onChange(Math.max(min, Number(e.target.value) || 0))} />;
+function NumberInput({ label, value, min = 0, onChange }: { label: string; value: number; min?: number; onChange: (value: number) => void }) {
+  return <input aria-label={label} className="number-input" type="number" min={min} value={Number.isNaN(value) ? "" : value} onChange={(e) => onChange(e.target.value === "" ? Number.NaN : Number(e.target.value))} />;
+}
+
+function History({ records, onOpen, onDelete, onClear }: { records: SimulationHistoryRecord[]; onOpen: (record: SimulationHistoryRecord) => void; onDelete: (id: string) => void; onClear: () => void }) {
+  return <><PageIntro eyebrow="LOCAL RUN ARCHIVE" title="Simulation history" description="Open previous engine results without rerunning the scheduler." action={records.length ? <button className="secondary-button" onClick={onClear}>Clear history</button> : undefined} />
+    <div className="panel history-panel">{records.length ? records.map((record) => <div className="history-row" key={record.id}><div className="history-icon">{record.algorithm === "sjf" ? "S" : "T"}</div><div className="history-details"><strong>{record.algorithm === "sjf" ? "Non-preemptive SJF" : "Preemptive SJF / SRTF"}</strong><small>{new Date(record.timestamp).toLocaleString()} · {record.input.length} processes · {record.result.averageWaitingTime.toFixed(2)}ms avg WT</small></div><button className="text-button" onClick={() => onOpen(record)}>Open result →</button><button className="delete-button" aria-label={`Delete history ${record.id}`} onClick={() => onDelete(record.id)}>×</button></div>) : <EmptyState text="Completed simulations will appear here." />}</div>
+  </>;
 }
 
 function Simulator({ algorithm, setAlgorithm, result, busy, onRun, error }: { algorithm: Algorithm; setAlgorithm: (algorithm: Algorithm) => void; result: SimulationResult | null; busy: boolean; onRun: () => void; error: string }) {
@@ -140,7 +160,7 @@ function GuideCard({ accent, symbol, title, subtitle, text, bullets }: { accent:
 }
 
 function About() {
-  return <><PageIntro eyebrow="PROJECT CONTEXT" title="About this project" description="A visual companion for understanding CPU scheduling in Operating Systems." /><div className="about-grid"><div className="panel about-card"><span className="pill blue">B.TECH OPERATING SYSTEMS</span><h2>Correctness first.<br /><span>Clarity always.</span></h2><p>Schedulr is an educational CPU scheduling simulator. Its architecture keeps scheduling decisions in a C engine compiled to WebAssembly, while React owns the interface and visualization.</p><div className="stack-row"><span>C engine</span><span>WebAssembly</span><span>React + TypeScript</span></div></div><div className="panel principles"><h3>Architecture principles</h3>{["The C engine is authoritative for metrics.", "The frontend never recomputes engine output.", "Every timeline segment is directly visualized.", "Tie-breaking is deterministic and testable."].map((item, index) => <div className="principle" key={item}><span>0{index + 1}</span><strong>{item}</strong></div>)}</div></div><div className="disclaimer"><span>ⓘ</span><p><strong>Frontend phase</strong> — The current screen uses a deterministic development adapter. The WASM service boundary is already isolated for the C engine integration phase.</p></div></>;
+  return <><PageIntro eyebrow="PROJECT CONTEXT" title="About this project" description="A visual companion for understanding CPU scheduling in Operating Systems." /><div className="about-grid"><div className="panel about-card"><span className="pill blue">B.TECH OPERATING SYSTEMS</span><h2>Correctness first.<br /><span>Clarity always.</span></h2><p>Schedulr is an educational CPU scheduling simulator. Its architecture keeps scheduling decisions in a C engine compiled to WebAssembly, while React owns the interface and visualization.</p><div className="stack-row"><span>C engine</span><span>WebAssembly</span><span>React + TypeScript</span></div></div><div className="panel principles"><h3>Architecture principles</h3>{["The C engine is authoritative for metrics.", "The frontend never recomputes engine output.", "Every timeline segment is directly visualized.", "Tie-breaking is deterministic and testable."].map((item, index) => <div className="principle" key={item}><span>0{index + 1}</span><strong>{item}</strong></div>)}</div></div><div className="disclaimer"><span>ⓘ</span><p><strong>WASM phase</strong> — The interface calls the C scheduler through the flat WebAssembly ABI. Generate the local Emscripten assets before running the browser demo.</p></div></>;
 }
 
 function Metric({ label, value, detail, icon }: { label: string; value: string | number; detail: string; icon: string }) {

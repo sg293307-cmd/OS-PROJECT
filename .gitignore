@@ -3,4 +3,6 @@ dist
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+public/wasm
+coverage
 .DS_Store
