@@ -4,7 +4,7 @@
 
 | Check | Result |
 |---|---|
-| Frontend tests | Passed: 3 files, 11 tests |
+| Frontend tests | Passed: 3 files, 16 tests |
 | Frontend coverage | Passed |
 | Production TypeScript/Vite build | Passed |
 | Native C scheduler tests | Passed |

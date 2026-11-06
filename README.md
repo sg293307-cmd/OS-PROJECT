@@ -1,5 +1,13 @@
 # CPU Scheduling Simulator
 
+## Project identification
+
+- **Student name:** Jatin Trivedi
+- **Roll number:** 2506075
+- **Course:** B.Tech Computer Science
+- **Project guide:** Not specified
+- **College:** NIT Patna
+
 An interactive B.Tech Operating Systems project that demonstrates
 non-preemptive Shortest Job First (SJF) and preemptive Shortest Remaining Time
 First (SRTF). Scheduling decisions, Gantt segments, and metrics are implemented

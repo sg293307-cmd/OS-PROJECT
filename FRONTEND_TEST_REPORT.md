@@ -6,7 +6,7 @@
 npm test
 ```
 
-Result: **8 tests passed across 2 test files**.
+Result: **16 tests passed across 3 test files**.
 
 Coverage:
 
@@ -27,7 +27,7 @@ Latest summary:
 - Process creation, deletion, PID editing, arrival-time editing, and burst-time
   editing.
 - Sample dataset loading.
-- Numeric input clamping.
+- Invalid numeric input validation.
 - Duplicate process error presentation.
 - SJF and SRTF selection.
 - Simulator loading state and error path.

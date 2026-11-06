@@ -1,3 +1,9 @@
+/*
+ * Non-preemptive SJF selects the available process with the shortest burst,
+ * then earlier arrival time, then lower PID. If no process is ready, the
+ * scheduler records an idle segment and advances to the next arrival.
+ * Selection scans make this O(n^2) in time and O(n) in auxiliary space.
+ */
 #include "gantt.h"
 #include "process.h"
 

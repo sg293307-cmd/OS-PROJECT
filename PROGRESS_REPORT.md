@@ -3,7 +3,7 @@
 **Report date:** 2026-11-06  
 **Repository:** `sg293307-cmd/OS-PROJECT`  
 **Branch:** `main`  
-**Current commit:** `585e591` — Build CPU scheduling simulator frontend
+**Current commit:** See the latest repository commit
 
 ## Overall status
 
@@ -38,7 +38,7 @@
   - Editable process IDs
   - Arrival-time and burst-time inputs
   - Sample dataset loading
-  - CSV import/export UI placeholders
+  - Functional CSV import/export
   - Local input safeguards
 - Simulator screen with:
   - Non-preemptive SJF selection
@@ -65,16 +65,15 @@
 
 - Typed process and result models defined in `src/types.ts`.
 - Scheduler service boundary created in `src/services/wasmService.ts`.
-- Deterministic development adapter added so the UI can be demonstrated before the C/WASM engine exists.
-- The UI consumes scheduler output through the service boundary rather than embedding scheduling logic in components.
+- The production WASM service loads the C scheduling engine through the flat-array ABI.
+- The UI consumes C/WASM scheduler output through the service boundary rather than embedding scheduling logic in components.
 
 ## Validation completed
 
 - `npm run build` passes successfully.
 - Vite development server starts successfully.
 - Local server smoke test passed at `http://127.0.0.1:5173/`.
-- Latest commit is pushed to `origin/main`.
-- Working tree is clean.
+- Native and frontend validation commands pass in the development environment.
 
 ## Current limitations and next steps
 
@@ -95,7 +94,7 @@
 | Process management UI | Complete |
 | Gantt visualization | Complete |
 | Results and analytics UI | Complete |
-| Development scheduler adapter | Replaced by WASM service |
+| WASM scheduling engine | Complete |
 | C scheduling engine | Complete |
 | C automated tests | Complete |
 | WebAssembly ABI | Complete |
