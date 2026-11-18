@@ -110,6 +110,6 @@ describe("CPU scheduling project UI", () => {
     expect(await screen.findByText("Execution timeline")).toBeInTheDocument();
     expect(screen.getByText("IDLE")).toBeInTheDocument();
     expect(screen.getByText("84.6%")).toBeInTheDocument();
-    expect(screen.getByText("P1")).toBeInTheDocument();
+    expect(screen.getAllByText("P1").length).toBeGreaterThan(0);
   });
 });
